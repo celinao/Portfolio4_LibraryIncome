@@ -88,13 +88,13 @@ write.csv(expense_data, "derived_data//expense_data.csv")
 ```
 
 ```{r}
-getHist("Clark")
-budget_data
+library_expense <- library_budgets %>%
+  select(County, Total_Operating_Expenditures, year) %>%
+  group_by(County) %>%
+  summarise(Total_Operating_Expenditures = mean(Total_Operating_Expenditures)) 
+
+write.csv(library_expense, "derived_data//library_expense.csv")
 ```
 
-
-2. There were still a few parts I think could be made more clear by using functions, nonstandard evaluation, or maps. For example, if you put all the file paths in one vector, you could try something like `map_dfr(file_names, readxl::read_excel, .id = "file") %>% group_by(file) %>% slice(-1) %>% rename(...`
-
-5. Including the legends in both barplots is a bit redundant. Another detail to consider is renaming the columns for “Category,” so that the reader can see more ordinary labels (not something clearly out of a dataset).
 
 6. Did you consider shading the counties according to some properties of the barplots? Right now, it’s possible to interpret the income and expenses for each county, but every new selection is a surprise. It would be interesting if you could guide the reader across counties in somehow.

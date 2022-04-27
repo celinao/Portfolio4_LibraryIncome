@@ -4,42 +4,61 @@ library(maps)
 library(shiny)
 library(sf)
 library(leaflet)
+library(scales)
+library(patchwork)
 
 total_library_budgets <- read_csv("derived_data//total_library_budgets.csv")
 total_library_expenditures <- read_csv("derived_data//total_library_expenditures.csv")
 budget_data <- read_csv("derived_data//budget_data.csv")
 expense_data <- read_csv("derived_data//expense_data.csv")
+library_expense <- read_csv("derived_data//library_expense.csv")
+
+# Leaflet Color Palette 
+color_palette = c("#02818A", "#014636")
+pal <- colorQuantile("PuBuGn", domain = library_expense$Total_Operating_Expenditures, n = 10)
+
+# Leaflet detailed labels 
+labels <- sprintf(
+  "<strong>%s</strong><br/>Average Operating Income: $%s",
+  library_expense$County, comma(library_expense$Total_Operating_Expenditures)
+) %>% lapply(htmltools::HTML)
   
 getHist <- function(selected_county){
-  budget_hist <- budget_data %>%
-    filter(County == str_replace(selected_county, " County", ""))
+  budget <- budget_data %>%
+    filter(County %in% c(str_replace(selected_county, " County", ""), "!"))
   
-  create_hist <- budget_hist %>%
-    full_join(total_library_budgets, names(budget_hist)) %>%
+  expense <- expense_data %>%
+    filter(County %in% c(str_replace(selected_county, " County", ""), "All")) 
+  
+  # Reformat labels and pivot data 
+  budget_hist <- budget %>%
+    full_join(total_library_budgets, names(budget)) %>%
     pivot_longer(cols=Municipal_Appropriation:Contract_Income, names_to="Category", values_to="Percent") %>%
+    mutate(Category = str_replace_all(Category, "_", " \n")) %>%
+    # Create barplot 
     ggplot() +
     geom_bar(aes(x=Percent, y = Category, fill = County), stat="identity", position = position_dodge())+ 
     labs(title = paste(selected_county, "Library Income Breakdown"))+ 
-    scale_y_discrete(expand = c(0,0)) + 
+    scale_fill_manual(values=color_palette) + 
+    scale_x_continuous(expand = c(0,0)) +
     theme(panel.grid = element_blank())
-  return(create_hist)
-}
-
-getHistEx <- function(selected_county){
-  expense_hist <- expense_data %>%
-    filter(County == str_replace(selected_county, " County", ""))
   
-  create_hist <- total_library_expenditures %>%
-    full_join(expense_hist, names(expense_hist)) %>%
+  # Reformat labels and pivot data 
+  expense_hist <- total_library_expenditures %>%
+    full_join(expense, names(expense)) %>%
     pivot_longer(cols=Salaries_Wages:Other_Operating_Expenditures, names_to="Category", values_to="Percent") %>%
+    mutate(Category = str_replace_all(Category, "_", " \n")) %>%
+    # Create barplot 
     ggplot() +
     geom_bar(aes(x=Percent, y = Category, fill = County), stat="identity", position = position_dodge()) + 
     labs(title = paste(selected_county, "Library Expenses Breakdown"))+ 
-    scale_y_discrete(expand = c(0,0)) + 
-    theme(panel.grid = element_blank())
-  return(create_hist)
+    scale_fill_manual(values=color_palette) + 
+    scale_x_continuous(expand = c(0,0)) +
+    theme(panel.grid = element_blank(), 
+          axis.title.y = element_blank())
+  
+  return(budget_hist + expense_hist + plot_layout(guides = "collect") & theme(legend.position = "bottom"))
 }
-
 
 shape <- tigris::counties(state = "WI", class = "sf")
 
@@ -59,12 +78,7 @@ ui <- fluidPage(
   hr(), 
   
   fluidRow(
-    column(6, 
-           plotOutput("budgets")
-    ),
-    column(6, 
-           plotOutput("expenses")
-    )
+    plotOutput("budgets")
   ), 
   hr()
 )
@@ -77,10 +91,19 @@ server <- function(input, output) {
     leaflet() %>% 
       addProviderTiles("Stamen.Toner") %>% 
       addPolygons(data = shape, 
-                  fillColor = "aliceblue", 
+                  fillColor = ~pal(library_expense$Total_Operating_Expenditures), 
                   color = "grey",
+                  fillOpacity = 0.7, 
                   weight = 1,
-                  layerId = ~COUNTYNS)
+                  highlightOptions = highlightOptions(
+                    weight = 5,
+                    color = "#666"), 
+                  layerId = ~COUNTYNS, 
+                  label = labels, 
+                  ) %>%
+      addLegend(pal = pal, values = library_expense$Total_Operating_Expenditures, opacity = 0.7, title = NULL,
+                position = "bottomright")
+      
   })
   
   observe({ 
@@ -89,10 +112,6 @@ server <- function(input, output) {
     
     output$budgets <- renderPlot({
       getHist(shape$NAMELSAD[shape$COUNTYNS == event$id])
-    })
-    
-    output$expenses <- renderPlot({
-      getHistEx(shape$NAMELSAD[shape$COUNTYNS == event$id])
     })
   })
 }
