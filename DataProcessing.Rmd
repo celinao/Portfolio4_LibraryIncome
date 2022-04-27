@@ -1,0 +1,100 @@
+---
+title: "DataProcessing"
+author: "Celina"
+date: '2022-04-26'
+output: html_document
+---
+```{r}
+rm(list=ls())
+library(tidyverse)
+```
+
+```{r, warning=FALSE}
+
+years <- 2016:2019
+original_files <- list.files("original_data")
+original_sheets <- c("2016 WI Public Library Data", 
+                     "2017 WI Public Library Data", 
+                     "2018 WI Public Library Data", 
+                     "2019 PRELIMINARY DATA")
+
+identification_columns <- c('Public_Library', 'County')
+
+income_columns <- c('Municipal_Appropriation', 'Home_County_Appropriation',
+                    'Other_County_Payments_Adjacent_Counties', 'State_Funds', 
+                    'Federal_Funds', 'Contract_Income', 'Total_Income')
+
+expenditure_columns <- c('Salaries_Wages', 'Employee_Benefits', 'Print_Materials', 'Electronic_format',
+                         'Audiovisual_Materials', 'All_Other_Materials', 'Contracted_Services',
+                         'Other_Operating_Expenditures', 'Total_Operating_Expenditures')
+
+
+# Change all column names to be easily useable & select relevant columns 
+edit_colnames <- function(filename, sheetname, year){
+  temp_data <- readxl::read_excel(paste("original_data/", filename, sep=""), sheet = sheetname, skip = 1) %>%
+    slice(-1) %>%
+    rename_all(funs(str_replace_all(., "[^a-zA-Z0-9]+", "_"))) %>%
+    mutate(across(.cols=-c(County, Public_Library), as.numeric), 
+           year = year) %>%
+    select(all_of(identification_columns), all_of(income_columns), all_of(expenditure_columns)) %>%
+    mutate(across(.cols=-c(County, Public_Library), as.numeric), 
+           across(.cols=-c(County, Public_Library), ~ifelse(is.na(.x), 0, .x)), 
+           year = year)
+  return(temp_data)
+}
+
+# Create a variable for each year
+for(i in 1:length(original_files)){
+  assign(paste("library_", years[i], sep=""), edit_colnames(original_files[i], original_sheets[i], years[i]))
+}
+
+# join datasets 
+library_budgets <- library_2016 %>%
+  full_join(library_2017, by=names(library_2016)) %>%
+  full_join(library_2018, by=names(library_2016)) %>%
+  full_join(library_2019, by=names(library_2016))
+```
+```{r}
+# Shiny Data Preparation 
+total_library_budgets <- library_budgets %>%
+  select(all_of(identification_columns), all_of(income_columns)) %>%
+  summarise(across(.cols=all_of(income_columns), sum)) %>%
+  mutate(across(.cols=all_of(income_columns), ~ round((.x/Total_Income)*100, 1)),
+         County = "All")
+
+total_library_expenditures <- library_budgets %>%
+  select(all_of(identification_columns), all_of(expenditure_columns)) %>%
+  summarise(across(.cols=-c(County, Public_Library), sum)) %>%
+  mutate(across(.cols=all_of(expenditure_columns), ~ round((.x/Total_Operating_Expenditures)*100, 1)),
+         County = "All")
+
+budget_data <- library_budgets %>%
+  group_by(County) %>%
+  select(all_of(identification_columns), all_of(income_columns)) %>%
+  summarise(across(.cols=all_of(income_columns), sum)) %>%
+  mutate(across(.cols=all_of(income_columns), ~ round((.x/Total_Income)*100, 1)), 
+         County = ifelse(is.na(County), "All", County)) 
+
+expense_data <- library_budgets %>%
+  group_by(County) %>%
+  select(all_of(identification_columns), all_of(expenditure_columns)) %>%
+  summarise(across(.cols=all_of(expenditure_columns), sum)) %>%
+  mutate(across(.cols=all_of(expenditure_columns), ~ round((.x/Total_Operating_Expenditures)*100, 1)))
+
+write.csv(total_library_budgets, "derived_data//total_library_budgets.csv")
+write.csv(total_library_expenditures, "derived_data//total_library_expenditures.csv")
+write.csv(budget_data, "derived_data//budget_data.csv")
+write.csv(expense_data, "derived_data//expense_data.csv")
+```
+
+```{r}
+getHist("Clark")
+budget_data
+```
+
+
+2. There were still a few parts I think could be made more clear by using functions, nonstandard evaluation, or maps. For example, if you put all the file paths in one vector, you could try something like `map_dfr(file_names, readxl::read_excel, .id = "file") %>% group_by(file) %>% slice(-1) %>% rename(...`
+
+5. Including the legends in both barplots is a bit redundant. Another detail to consider is renaming the columns for “Category,” so that the reader can see more ordinary labels (not something clearly out of a dataset).
+
+6. Did you consider shading the counties according to some properties of the barplots? Right now, it’s possible to interpret the income and expenses for each county, but every new selection is a surprise. It would be interesting if you could guide the reader across counties in somehow.
