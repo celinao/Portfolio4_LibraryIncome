@@ -42,7 +42,7 @@ getHist <- function(selected_county){
   budget_hist <- budget %>%
     full_join(total_library_budgets, names(budget)) %>%
     pivot_longer(cols=Municipal_Appropriation:Contract_Income, names_to="Category", values_to="Percent") %>%
-    mutate(Category = str_replace_all(Category, "_", " ")) %>%
+    mutate(Category = str_replace_all(Category, "_", "\n")) %>%
     # Create barplot 
     ggplot() +
     geom_bar(aes(x=Percent, y = Category, fill = County), stat="identity", position = position_dodge())+ 
@@ -55,7 +55,7 @@ getHist <- function(selected_county){
   expense_hist <- total_library_expenditures %>%
     full_join(expense, names(expense)) %>%
     pivot_longer(cols=Salaries_Wages:Other_Operating_Expenditures, names_to="Category", values_to="Percent") %>%
-    mutate(Category = str_replace_all(Category, "_", " ")) %>%
+    mutate(Category = str_replace_all(Category, "_", "\n")) %>%
     # Create barplot 
     ggplot() +
     geom_bar(aes(x=Percent, y = Category, fill = County), stat="identity", position = position_dodge()) + 
