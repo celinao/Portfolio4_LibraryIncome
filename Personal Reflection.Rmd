@@ -1,0 +1,76 @@
+---
+title: "Personal Reflection"
+author: "Celina"
+date: '2022-05-07'
+output: html_document
+---
+# Personal Reflection
+
+### General Aesthetic Changes  
+
+```{r, echo=FALSE,out.width="49%", out.height="20%",fig.cap="Old and New Histograms",fig.show='hold',fig.align='center'}
+knitr::include_graphics(c("ReflectionImages/HistogramOriginal.JPG","ReflectionImages/HistogramNew.JPG"))
+``` 
+
+The first improvements I made to my portfolio were based upon the comments made to my initial submission and were all about the general aesthetics of the interface. These changes included adding a color scheme from the Brewers package, changing the labels on my histograms so they wouldn't look like variables (aka removing _), and adding a default value to the graph so there wouldn't be an error before the selection. These changes were all aesthetic and just allowed the interface to have a cleaner look that was easier for random users to comprehend. 
+
+I also added a small introduction that explained what the interface was attempting to visualize. 
+
+### Code Improvements
+There were also some improvements that I made to the code that allowed everything to run much smoother. First, I decided to create a separate file containing all of my initial changes to the original dataset. My data required a lot of cleaning to be usable meaning it took a lot of processing power and time every time the app was run. Creating a separate file allowed me to clean the data once and create new files that were derived from the raw data. 
+
+**Loading in the all New Derived Data** 
+```{r, eval = FALSE}
+total_library_budgets <- read_csv("derived_data//total_library_budgets.csv")
+total_library_expenditures <- read_csv("derived_data//total_library_expenditures.csv")
+budget_data <- read_csv("derived_data//budget_data.csv")
+expense_data <- read_csv("derived_data//expense_data.csv")
+library_expense <- read_csv("derived_data//library_expense.csv")
+```
+
+**Old Method for reading one file** 
+```{r, eval=FALSE}
+library_2019 <- readxl::read_excel("PRELIMINARY_2019_public_library_service_data.xlsx", sheet = "2019 PRELIMINARY DATA", skip = 1) %>%
+  slice(-1) %>%
+  rename_all(funs(str_replace_all(., "[^a-zA-Z0-9]+", "_"))) %>%
+  mutate(across(.cols=-c(County, Public_Library), as.numeric), 
+         year = 2019)
+
+library_2019 <- library_2019 %>%
+  select(all_of(identification_columns), all_of(income_columns), all_of(expenditure_columns)) %>%
+  mutate(across(.cols=-c(County, Public_Library), as.numeric), year = 2019)
+
+library_budgets <- library_2016 %>%
+  full_join(library_2017, by=names(library_2016)) %>%
+  full_join(library_2018, by=names(library_2016)) %>%
+  full_join(library_2019, by=names(library_2016))
+
+total_library_budgets <- library_budgets %>%
+  select(all_of(identification_columns), all_of(income_columns)) %>%
+  summarise(across(.cols=-c(County, Public_Library), sum)) %>%
+  mutate(across(.cols=all_of(income_columns), ~ round((.x/Total_Income)*100, 1)),
+         County = "All")
+```
+
+
+I decided to combine my two histogram functions into one function since they both had the same parameters. This allowed me to combine the legends together using patchwork and speed up changes to the interface since it was now only rendering one image for every change. 
+
+## Main Improvements  
+
+```{r, echo=FALSE,out.width="49%", out.height="20%",fig.cap="Old and New Leaflet Maps",fig.show='hold',fig.align='center'}
+knitr::include_graphics(c("ReflectionImages/MapOriginal.JPG","ReflectionImages/MapNew.JPG"))
+```
+
+Now that I have more experience and time to work on the interactive map I decided to make major improvements to it. The first thing I added was the ability to select multiple counties at once. This required adding a reactiveValue value that recorded every county selected instead of just changing the input upon every click. I made this improvement since it allowed users to select multiple counties and compare them to each other. 
+
+Since I allowed the user to select and unselect multiple counties I needed a method of showing which counties were selected. So I added a variable to my shapes data to indcate what the border color of each county should be. This variable was changed every time a new county was selected so the user could see what they have and have not selected. Unfortunately, this makes the app very slow since the shapes variable is changed repeatably. If I had more time to investigate interactive maps and how to user layers to add border colors I would see if I could make this function more efficient. 
+
+I also wanted to add color to the leaflet map so that it would serve another function (on top of being a method of selecting the histogram's counties). To do this I decided to fill the counties based upon what their total library expenditures were. Unfortunately, the largest counties were much greater than the smallest counties so the colors of the map were hard to differentiate. Therefore, I decided to group the counties by percentile and color them by said percentile. This allows the user to see which counties are in the top, middle, or bottom percentiles. 
+
+```{r, echo=FALSE,out.width="49%", out.height="20%",fig.cap="Map Tooltips",fig.show='hold',fig.align='center'}
+knitr::include_graphics(c("ReflectionImages/Tooltip.png"))
+``` 
+
+However, I still wanted the users to see what each counties expenditures were. So, I added a tooltip the map. This allows the user to hover over each county and see what the county's name and total expenditures were. I think this is a great way to show additional information that is too specific to visualize. 
+
+

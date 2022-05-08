@@ -25,7 +25,7 @@ pal <- colorQuantile("PuBuGn", domain = shape$Total_Operating_Expenditures, n = 
 
 # Leaflet detailed labels 
 labels <- sprintf(
-  "<strong>%s</strong><br/>Average Operating Income: $%s",
+  "<strong>%s</strong><br/>Total Operating Expenditures: $%s",
   shape$NAME, comma(shape$Total_Operating_Expenditures)
 ) %>% lapply(htmltools::HTML)
   
@@ -80,9 +80,17 @@ ui <- fluidPage(
   titlePanel("Library Income and Expense Breakdown"),
   
   fluidRow(
-    column(1,),
+    # column(1,),
     
-    column(10, 
+    column(2, 
+           h3("Overview"), 
+           p("This interface gathers the total expenditures and income sources of public libraries across Wisconsin."),
+           br(), 
+           p("You can use it to see which countries are in the highest expenditures and select counties to examine how their 
+             broken down budgets relate to other counties in Wisconsins. ")
+           ), 
+    
+    column(9, 
            leafletOutput("map")
     ), 
     column(1,)
